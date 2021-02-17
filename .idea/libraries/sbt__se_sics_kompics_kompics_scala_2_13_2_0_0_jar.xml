@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="sbt: se.sics.kompics:kompics-scala_2.13:2.0.0:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/jcenter.bintray.com/se/sics/kompics/kompics-scala_2.13/2.0.0/kompics-scala_2.13-2.0.0.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/jcenter.bintray.com/se/sics/kompics/kompics-scala_2.13/2.0.0/kompics-scala_2.13-2.0.0-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/jcenter.bintray.com/se/sics/kompics/kompics-scala_2.13/2.0.0/kompics-scala_2.13-2.0.0-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

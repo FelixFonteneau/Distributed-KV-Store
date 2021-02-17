@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="sbt: se.sics.kompics.basic:kompics-port-timer:1.2.1:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/jcenter.bintray.com/se/sics/kompics/basic/kompics-port-timer/1.2.1/kompics-port-timer-1.2.1.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/jcenter.bintray.com/se/sics/kompics/basic/kompics-port-timer/1.2.1/kompics-port-timer-1.2.1-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/jcenter.bintray.com/se/sics/kompics/basic/kompics-port-timer/1.2.1/kompics-port-timer-1.2.1-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

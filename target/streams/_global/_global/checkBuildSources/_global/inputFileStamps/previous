@@ -1,0 +1,1 @@
+["sbt.Task[scala.collection.Seq[scala.Tuple2[java.nio.file.Path, sbt.nio.FileStamp]]]",{"hashes":[["/Users/felixfonteneau/workbench/Distributed-KV-Store/build.sbt","932bb6fac82e022fa2c8b77266bcc97b4d3dad28"],["/Users/felixfonteneau/workbench/Distributed-KV-Store/project/plugins.sbt","e478be453fbf3ddf006ce1ed304c78c8b67d6deb"]],"lastModifiedTimes":[]}]
