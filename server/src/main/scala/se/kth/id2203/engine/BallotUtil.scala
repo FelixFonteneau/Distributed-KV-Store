@@ -21,38 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package se.kth.id2203
+package se.kth.id2203.engine
 
-import se.kth.id2203.bootstrapping._
-import se.kth.id2203.kvstore.KVService
-import se.kth.id2203.networking.NetAddress
-import se.kth.id2203.overlay._
+import se.kth.id2203.networking.NetHeader
+import se.sics.kompics.KompicsEvent
 import se.sics.kompics.sl._
-import se.sics.kompics.Init
-import se.sics.kompics.network.Network
-import se.sics.kompics.timer.Timer
+import se.sics.kompics.timer.{ScheduleTimeout, Timeout}
 
-class ParentComponent extends ComponentDefinition {
 
-  //******* Ports ******
-  val net = requires[Network]
-  val timer = requires[Timer]
-  //******* Children ******
-  val overlay = create(classOf[VSOverlayManager], Init.NONE)
-  val kv = create(classOf[KVService], Init.NONE)
-  val boot = cfg.readValue[NetAddress]("id2203.project.bootstrap-address") match {
-    case Some(_) => create(classOf[BootstrapClient], Init.NONE) // start in client mode
-    case None    => create(classOf[BootstrapServer], Init.NONE) // start in server mode
-  }
+case class CheckTimeout(timeout: ScheduleTimeout) extends Timeout(timeout)
 
-  {
-    connect[Timer](timer -> boot)
-    connect[Network](net -> boot)
-    // Overlay
-    connect(Bootstrapping)(boot -> overlay)
-    connect[Network](net -> overlay)
-    // KV
-    connect(Routing)(overlay -> kv)
-    connect[Network](net -> kv)
-  }
+case class HeartbeatReq(round: Long, highestBallot: Long) extends KompicsEvent
+
+case class HeartbeatResp(round: Long, ballot: Long) extends KompicsEvent
+
+case class BLE_Leader(leader: NetHeader, ballot: Long) extends KompicsEvent
+
+case class Init(s: NetHeader) extends  KompicsEvent
+
+class BallotLeaderElection extends Port {
+  indication[BLE_Leader]
 }

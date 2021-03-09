@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="5 Servers" type="CompoundRunConfigurationType">
+    <toRun name="Node (2)" type="Application" />
+    <toRun name="Node (1)" type="Application" />
+    <method v="2" />
+  </configuration>
+</component>
