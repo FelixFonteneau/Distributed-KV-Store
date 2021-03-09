@@ -24,6 +24,7 @@
 package se.kth.id2203
 
 import se.kth.id2203.bootstrapping._
+import se.kth.id2203.engine.GossipLeaderElection
 import se.kth.id2203.kvstore.KVService
 import se.kth.id2203.networking.NetAddress
 import se.kth.id2203.overlay._
@@ -44,6 +45,8 @@ class ParentComponent extends ComponentDefinition {
     case Some(_) => create(classOf[BootstrapClient], Init.NONE) // start in client mode
     case None    => create(classOf[BootstrapServer], Init.NONE) // start in server mode
   }
+
+  val balotLeaderElection = create(classOf[GossipLeaderElection], cfg.getValue[NetAddress]("id2203.project.address"))
 
   {
     connect[Timer](timer -> boot)

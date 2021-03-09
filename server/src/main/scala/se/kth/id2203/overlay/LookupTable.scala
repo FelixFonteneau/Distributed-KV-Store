@@ -21,25 +21,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package se.kth.id2203.overlay;
+package se.kth.id2203.overlay
 
-import com.larskroll.common.collections._;
-import java.util.Collection;
-import se.kth.id2203.bootstrapping.NodeAssignment;
-import se.kth.id2203.networking.NetAddress;
+import com.larskroll.common.collections._
+import java.util.Collection
+import se.kth.id2203.bootstrapping.NodeAssignment
+import se.kth.id2203.networking.NetAddress
 
 @SerialVersionUID(6322485231428233902L)
 class LookupTable extends NodeAssignment with Serializable {
 
-  val partitions = TreeSetMultiMap.empty[Int, NetAddress];
+  val partitions = TreeSetMultiMap.empty[Int, NetAddress]
 
   def lookup(key: String): Iterable[NetAddress] = {
-    val keyHash = key.hashCode();
+    val keyHash = key.hashCode()
     val partition = partitions.floor(keyHash) match {
       case Some(k) => k
       case None    => partitions.lastKey
     }
-    return partitions(partition);
+    return partitions(partition)
   }
 
   def getNodes(): Set[NetAddress] = partitions.foldLeft(Set.empty[NetAddress]) {
@@ -47,19 +47,19 @@ class LookupTable extends NodeAssignment with Serializable {
   }
 
   override def toString(): String = {
-    val sb = new StringBuilder();
-    sb.append("LookupTable(\n");
-    sb.append(partitions.mkString(","));
-    sb.append(")");
-    return sb.toString();
+    val sb = new StringBuilder()
+    sb.append("LookupTable(\n")
+    sb.append(partitions.mkString(","))
+    sb.append(")")
+    return sb.toString()
   }
 
 }
 
 object LookupTable {
   def generate(nodes: Set[NetAddress]): LookupTable = {
-    val lut = new LookupTable();
-    lut.partitions ++= (0 -> nodes);
+    val lut = new LookupTable()
+    lut.partitions ++= (0 -> nodes)
     lut
   }
 }
