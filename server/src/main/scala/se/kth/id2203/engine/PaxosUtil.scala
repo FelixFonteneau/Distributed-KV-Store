@@ -1,7 +1,13 @@
 package se.kth.id2203.engine
 
+import se.kth.id2203.networking.NetAddress
 import se.sics.kompics.KompicsEvent
 import se.sics.kompics.sl._
+
+
+case class UpdateTopology(pi: Set[NetAddress]) extends KompicsEvent
+
+
 //Provided Primitives to use in your implementation
 
 case class Prepare(nL: Long, ld: Int, na: Long) extends KompicsEvent
@@ -26,7 +32,7 @@ object Role extends Enumeration {
   val LEADER, FOLLOWER = Value
 }
 
-class SequenceConsensus extends Port {
+object SequenceConsensus extends Port {
   request[SC_Propose]
   indication[SC_Decide]
 }
@@ -34,5 +40,6 @@ class SequenceConsensus extends Port {
 case class SC_Propose(value: RSM_Command) extends KompicsEvent
 
 case class SC_Decide(value: RSM_Command) extends KompicsEvent
+
 
 trait RSM_Command

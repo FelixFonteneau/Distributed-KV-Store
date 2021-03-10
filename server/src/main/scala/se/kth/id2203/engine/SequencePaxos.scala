@@ -1,6 +1,7 @@
 package se.kth.id2203.engine
 
-import se.kth.id2203.networking.{NetHeader, NetMessage}
+import se.kth.id2203.networking.{NetAddress, NetMessage}
+import se.sics.kompics.KompicsEvent
 import se.sics.kompics.network._
 import se.sics.kompics.sl._
 
@@ -10,29 +11,32 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
   import Role._
   import State._
 
-  val sc = provides[SequenceConsensus]
-  val ble = requires[BallotLeaderElection]
+  val sc = provides(SequenceConsensus)
+  val ble = requires(BallotLeaderElection)
   // val pl = requires[FIFOPerfectLink]
   val net = requires[Network]
 
-  val (self, pi, others) = init match {
-    case Init(addr: NetHeader, pi: Set[NetHeader] @unchecked) => (addr, pi, pi - addr)
-  }
-  val majority = (pi.size / 2) + 1
+  val self = cfg.getValue[NetAddress]("id2203.project.address")
+  var pi: Set[NetAddress] = Set(self)
+  // = init match {
+  //   case Init(addr: NetAddress, pi: Set[NetAddress] @unchecked) => (addr, pi, pi - addr)
+  // }
+
+  var majority = (pi.size / 2) + 1
 
   var state = (FOLLOWER, UNKOWN)
-  var nL = 0l
-  var nProm = 0l
-  var leader: Option[NetHeader] = None
-  var na = 0l
+  var nL = 0L
+  var nProm = 0L
+  var leader: Option[NetAddress] = None
+  var na = 0L
   var va = List.empty[RSM_Command]
   var ld = 0
   // leader state
   var propCmds = List.empty[RSM_Command]
-  val las = mutable.Map.empty[NetHeader, Int]
-  val lds = mutable.Map.empty[NetHeader, Int]
+  val las = mutable.Map.empty[NetAddress, Int]
+  val lds = mutable.Map.empty[NetAddress, Int]
   var lc = 0
-  val acks = mutable.Map.empty[NetHeader, (Long, List[RSM_Command])]
+  val acks = mutable.Map.empty[NetAddress, (Long, List[RSM_Command])]
 
   def suffix(s: List[RSM_Command], l: Int): List[RSM_Command] = {
     s.drop(l)
@@ -60,7 +64,7 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
           lc = 0
           for (p <- pi) {
             if (p != self) {
-              trigger(NetMessage(p, Prepare(nL, ld, na)) -> net)
+              trigger(NetMessage(self, p, Prepare(nL, ld, na)) -> net)
               // trigger(PL_Send(p, Prepare(nL, ld, na)) -> pl)
             }
           }
@@ -156,7 +160,8 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
   */
 
   net uponEvent {
-    case NetMessage(p, Prepare(np, ldp, n)) => {
+    case NetMessage(header, Prepare(np, ldp, n)) => {
+      val p = header.src
       if (nProm < np) {
         nProm = np
         state = (FOLLOWER, PREPARE)
@@ -164,11 +169,12 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
         if (na >= n) {
           sfx = suffix(va, ld) // todo change to ldp si jamais
         }
-        trigger(NetMessage(p, Promise(np, na, sfx, ld)) -> net) // todo change to ldp si jamais
+        trigger(NetMessage(self, p, Promise(np, na, sfx, ld)) -> net) // todo change to ldp si jamais
       }
     }
 
-    case NetMessage(a, Promise(n, na, sfxa, lda)) => {
+    case NetMessage(header, Promise(n, na, sfxa, lda)) => {
+      val a = header.src
       if ((n == nL) && (state == (LEADER, PREPARE))) {
         acks(a) = (na, sfxa)
         lds(a) = lda
@@ -182,32 +188,34 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
           for (p <- pi) {
             if (p != self && lds.contains(p)) {
               val sfxp = suffix(va, lds(p)) // CHANGE TO LAS
-              trigger(NetMessage(p, AcceptSync(nL, sfxp, lds(p))) -> net)
+              trigger(NetMessage(self, p, AcceptSync(nL, sfxp, lds(p))) -> net)
             }
           }
         }
       } else if ((n == nL) && (state == (LEADER, ACCEPT))) {
         lds(a) = lda
         val sfx = suffix(va, lds(a))
-        trigger(NetMessage(a, AcceptSync(nL, sfx, lds(a))) -> net)
+        trigger(NetMessage(self, a, AcceptSync(nL, sfx, lds(a))) -> net)
         if (lc != 0) {
-          trigger(NetMessage(a, Decide(ld, nL)) -> net)
+          trigger(NetMessage(self, a, Decide(ld, nL)) -> net)
         }
       }
     }
-    case NetMessage(p, AcceptSync(nL, sfx, ldp)) => {
+    case NetMessage(header, AcceptSync(nL, sfx, ldp)) => {
+      val p = header.src
       if ((nProm == nL) && (state == (FOLLOWER, PREPARE))) {
         na = nL; // change nL si jamais
         va = prefix(va, ld) ++ sfx // change to ldp si jamais
-        trigger(NetMessage(p, Accepted(nL, va.size)) -> net) // change nL si jamais
+        trigger(NetMessage(self, p, Accepted(nL, va.size)) -> net) // change nL si jamais
         state = (FOLLOWER, ACCEPT)
       }
     }
 
-    case NetMessage(p, Accept(nL, c)) => {
+    case NetMessage(header, Accept(nL, c)) => {
+      val p = header.src
       if ((nProm == nL) && (state == (FOLLOWER, ACCEPT))) {
         va = va ++ List(c)
-        trigger(NetMessage(p, Accepted(nL, va.size)) -> net)
+        trigger(NetMessage(self, p, Accepted(nL, va.size)) -> net)
       }
     }
 
@@ -220,14 +228,16 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
       }
     }
 
-    case NetMessage(a, Accepted(n, m)) => {
+    case NetMessage(header, Accepted(n, m)) => {
+      val a = header.src
+
       if ((n == nL) && (state == (LEADER, ACCEPT))) {
         las(a) = m
         val tmp = pi.filter(p => las(p) >= m)
         if (lc < m && tmp.size >= majority) {
           lc = m
           for (p <- pi.filter(p => lds.contains(p))) {
-            trigger(NetMessage(p, Decide(lc, nL)) -> net)
+            trigger(NetMessage(self, p, Decide(lc, nL)) -> net)
           }
         }
 
@@ -236,6 +246,12 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
   }
 
   sc uponEvent {
+    case UpdateTopology(newPi) => {
+      pi = newPi
+      majority = (pi.size / 2) + 1
+    }
+
+
     case SC_Propose(c) => {
       if (state == (LEADER, PREPARE)) {
         propCmds = propCmds ++ List(c)
@@ -244,7 +260,7 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
         va = va ++ List(c)
         las(self) = las(self) + 1
         for (p <- pi.filter(p => lds.contains(p) && p != self)) {
-          trigger(NetMessage(p, Accept(nL, c)) -> net)
+          trigger(NetMessage(self, p, Accept(nL, c)) -> net)
         }
       }
     }

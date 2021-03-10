@@ -23,9 +23,10 @@
  */
 package se.kth.id2203.kvstore
 
-import se.kth.id2203.networking._;
-import se.kth.id2203.overlay.Routing;
-import se.sics.kompics.sl._;
+import se.kth.id2203.engine.SequenceConsensus
+import se.kth.id2203.networking._
+import se.kth.id2203.overlay.Routing
+import se.sics.kompics.sl._
 import se.sics.kompics.network.Network;
 
 class KVService extends ComponentDefinition {
@@ -35,6 +36,7 @@ class KVService extends ComponentDefinition {
   val route = requires(Routing)
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address")
+  val consensus = requires(SequenceConsensus)
   //******* Handlers ******
   net uponEvent {
     case NetMessage(header, op @ Get(key, _)) => {

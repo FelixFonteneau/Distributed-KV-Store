@@ -1,6 +1,6 @@
 package se.kth.id2203.engine
 
-import se.kth.id2203.networking.{NetHeader, NetMessage}
+import se.kth.id2203.networking.{NetAddress, NetMessage}
 import se.sics.kompics.network._
 import se.sics.kompics.sl._
 import se.sics.kompics.timer.{ScheduleTimeout, Timer}
@@ -9,32 +9,34 @@ import scala.collection.mutable
 
 class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDefinition {
 
-  private val ballotOne = 0x0100000000l
+  private val ballotOne = 0x0100000000L
 
-  val ble = provides[BallotLeaderElection]
+  val ble = provides(BallotLeaderElection)
   // val pl = requires[PerfectLink]
   val net = requires[Network]
   val timer = requires[Timer]
 
-  val self = init match {
-    case Init(s: NetHeader) => s
-  }
+  // val self = init match {
+  //   case Init(s: NetAddress) => s
+  // }
 
-  val topology = List.empty[NetHeader]// todo
+  val self = cfg.getValue[NetAddress]("id2203.project.address")
+
+  var topology: Set[NetAddress] = Set(self)// todo
   // to determine cfg.getValue[List[Address]]("ble.simulation.topology");
   val delta = 3 // todo cfg.getValue[Long]("ble.simulation.delay")
-  val majority = (topology.size / 2) + 1
+  var majority = (topology.size / 2) + 1
 
   private var period = 3 //todo // cfg.getValue[Long]("ble.simulation.delay")
-  private val ballots = mutable.Map.empty[NetHeader, Long]
+  private val ballots = mutable.Map.empty[NetAddress, Long]
 
-  private var round = 0l
+  private var round = 0L
   private var ballot = ballotFromNAddress(0, self)
 
-  private var leader: Option[(Long, NetHeader)] = None
+  private var leader: Option[(Long, NetAddress)] = None
   private var highestBallot: Long = ballot
 
-  def ballotFromNAddress(n: Int, adr: NetHeader): Long = {
+  def ballotFromNAddress(n: Int, adr: NetAddress): Long = {
     val nBytes = com.google.common.primitives.Ints.toByteArray(n)
     val addrBytes = com.google.common.primitives.Ints.toByteArray(adr.hashCode())
     val bytes = nBytes ++ addrBytes
@@ -93,7 +95,7 @@ class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDe
       for (p <- topology) {
         if (p != self) {
           // trigger(PL_Send(p, HeartbeatReq(round, highestBallot)) -> pl);
-          trigger(NetMessage(p, HeartbeatReq(round, highestBallot)) -> net)
+          trigger(NetMessage(self, p, HeartbeatReq(round, highestBallot)) -> net)
         }
       }
       startTimer(period)
@@ -107,12 +109,19 @@ class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDe
       }
       trigger(NetMessage(src, HeartbeatResp(r, ballot)) -> net)
     }
-    case NetMessage(src, HeartbeatResp(r, b)) => {
+    case NetMessage(header, HeartbeatResp(r, b)) => {
       if (r == round) {
-        ballots += (src -> b)
+        ballots += (header.src -> b)
       } else {
         period = period + delta
       }
+    }
+  }
+
+  ble uponEvent {
+    case UpdateTopology(newPi) => {
+      topology = newPi
+      majority = (topology.size / 2) + 1
     }
   }
 

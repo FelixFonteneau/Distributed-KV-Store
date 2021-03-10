@@ -23,7 +23,7 @@
  */
 package se.kth.id2203.engine
 
-import se.kth.id2203.networking.NetHeader
+import se.kth.id2203.networking.NetAddress
 import se.sics.kompics.KompicsEvent
 import se.sics.kompics.sl._
 import se.sics.kompics.timer.{ScheduleTimeout, Timeout}
@@ -35,10 +35,10 @@ case class HeartbeatReq(round: Long, highestBallot: Long) extends KompicsEvent
 
 case class HeartbeatResp(round: Long, ballot: Long) extends KompicsEvent
 
-case class BLE_Leader(leader: NetHeader, ballot: Long) extends KompicsEvent
+case class BLE_Leader(leader: NetAddress, ballot: Long) extends KompicsEvent
 
-case class Init(s: NetHeader) extends  KompicsEvent
+case class Init(s: NetAddress) extends  KompicsEvent
 
-class BallotLeaderElection extends Port {
+object BallotLeaderElection extends Port {
   indication[BLE_Leader]
 }
