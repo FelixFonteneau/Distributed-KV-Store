@@ -1,6 +1,6 @@
 package se.kth.id2203.engine
 
-import se.kth.id2203.networking.{NetAddress, NetMessage}
+import se.kth.id2203.networking.{NetAddress, NetMessage, UpdateTopology}
 import se.sics.kompics.network._
 import se.sics.kompics.sl._
 import se.sics.kompics.timer.{ScheduleTimeout, Timer}

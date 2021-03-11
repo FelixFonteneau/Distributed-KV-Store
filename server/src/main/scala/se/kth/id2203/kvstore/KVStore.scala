@@ -34,9 +34,11 @@ class KVService extends ComponentDefinition {
   //******* Ports ******
   val net = requires[Network]
   val route = requires(Routing)
+
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address")
   val consensus = requires(SequenceConsensus)
+
   //******* Handlers ******
   net uponEvent {
     case NetMessage(header, op @ Get(key, _)) => {

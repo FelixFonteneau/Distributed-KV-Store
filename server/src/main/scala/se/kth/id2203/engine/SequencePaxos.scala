@@ -1,6 +1,6 @@
 package se.kth.id2203.engine
 
-import se.kth.id2203.networking.{NetAddress, NetMessage}
+import se.kth.id2203.networking.{NetAddress, NetMessage, UpdateTopology}
 import se.sics.kompics.KompicsEvent
 import se.sics.kompics.network._
 import se.sics.kompics.sl._
@@ -159,8 +159,10 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
   }
   */
 
+  // todo add a propose to all acceptors
+
   net uponEvent {
-    case NetMessage(header, Prepare(np, ldp, n)) => {
+    case NetMessage(header, Prepare(np, ldp, n)) => { // todo find the ldp to put in the event function
       val p = header.src
       if (nProm < np) {
         nProm = np
@@ -222,7 +224,7 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
     case NetMessage(_, Decide(l, nL)) => {
       if (nProm == nL) { // check the nL
         while (ld < l) {
-          trigger(SC_Decide(va(ld)) -> sc);
+          trigger(SC_Decide(va(ld)) -> sc)
           ld = ld + 1
         }
       }

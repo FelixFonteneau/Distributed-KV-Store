@@ -23,7 +23,7 @@
  */
 package se.kth.id2203.engine
 
-import se.kth.id2203.networking.NetAddress
+import se.kth.id2203.networking.{NetAddress, UpdateTopology}
 import se.sics.kompics.KompicsEvent
 import se.sics.kompics.sl._
 import se.sics.kompics.timer.{ScheduleTimeout, Timeout}
@@ -41,4 +41,5 @@ case class Init(s: NetAddress) extends  KompicsEvent
 
 object BallotLeaderElection extends Port {
   indication[BLE_Leader]
+  request[UpdateTopology]
 }
