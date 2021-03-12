@@ -24,7 +24,7 @@
 package se.kth.id2203.kvstore
 
 import se.kth.id2203.engine.{SC_Decide, SC_Propose, SequenceConsensus}
-import se.kth.id2203.kvstore.OpCode.Ok
+import se.kth.id2203.kvstore.OpCode.{Created, NotFound, Ok, Updated}
 import se.kth.id2203.networking._
 import se.kth.id2203.overlay.Routing
 import se.sics.kompics.sl._
@@ -62,16 +62,21 @@ class KVService extends ComponentDefinition {
     case SC_Decide(Command(op @ Get(key, _), address)) => {
       log.info("Paxos decided: {} {}", op, address)
       if (store.contains(key)) {
-        trigger(NetMessage(self, address, op.response(Ok)) -> net)
-
+        val value = store(key)
+        trigger(NetMessage(self, address, op.response(Ok, value)) -> net)
+      } else {
+        trigger(NetMessage(self, address, op.response(NotFound)) -> net)
       }
     }
 
     case SC_Decide(Command(op @ Put(key, value, _), address)) => {
       log.info("Paxos decided: {} {}", op, address)
       if (store.contains(key)) {
-        trigger(NetMessage(self, address, op.response(Ok)) -> net)
-
+        store(key) = value
+        trigger(NetMessage(self, address, op.response(Updated)) -> net)
+      } else {
+        store.addOne(key, value)
+        trigger(NetMessage(self, address, op.response(Created)) -> net)
       }
     }
   }
