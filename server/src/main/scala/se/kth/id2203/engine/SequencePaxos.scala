@@ -60,6 +60,7 @@ class SequencePaxos extends ComponentDefinition {
 
   ble uponEvent {
     case BLE_Leader(l, n) => {
+      log.info("BLE_Leader({}, {})", l, n)
       if (n > nL) {
         leader = Option(l)
         nL = n
@@ -175,6 +176,7 @@ class SequencePaxos extends ComponentDefinition {
 
   net uponEvent {
     case NetMessage(header, Prepare(np, ldp, n)) => { // todo find the ldp to put in the event function
+      log.info("Prepare({}, {}, {})", np, ldp, n)
       val p = header.src
       if (nProm < np) {
         nProm = np
@@ -188,6 +190,7 @@ class SequencePaxos extends ComponentDefinition {
     }
 
     case NetMessage(header, Promise(n, na, sfxa, lda)) => {
+      log.info("Promise({}, {}, {}, {})", n, na, sfxa, lda)
       val a = header.src
       if ((n == nL) && (state == (LEADER, PREPARE))) {
         acks(a) = (na, sfxa)
@@ -216,6 +219,7 @@ class SequencePaxos extends ComponentDefinition {
       }
     }
     case NetMessage(header, AcceptSync(nL, sfx, ldp)) => {
+      log.info("AcceptSync({}, {}, {})", nL, sfx, ldp)
       val p = header.src
       if ((nProm == nL) && (state == (FOLLOWER, PREPARE))) {
         na = nL;
@@ -226,6 +230,7 @@ class SequencePaxos extends ComponentDefinition {
     }
 
     case NetMessage(header, Accept(nL, c)) => {
+      log.info("AcceptSync({}, {})", nL, c)
       val p = header.src
       if ((nProm == nL) && (state == (FOLLOWER, ACCEPT))) {
         va = va ++ List(c)
@@ -234,6 +239,7 @@ class SequencePaxos extends ComponentDefinition {
     }
 
     case NetMessage(_, Decide(l, nL)) => {
+      log.info("Decide({}, {})", l, nL)
       if (nProm == nL) { // check the nL
         while (ld < l) {
           trigger(SC_Decide(va(ld)) -> sc)
@@ -243,6 +249,8 @@ class SequencePaxos extends ComponentDefinition {
     }
 
     case NetMessage(header, Accepted(n, m)) => {
+      log.info("Accepted({}, {})", n, m)
+
       val a = header.src
 
       if ((n == nL) && (state == (LEADER, ACCEPT))) {
@@ -261,6 +269,8 @@ class SequencePaxos extends ComponentDefinition {
 
   sc uponEvent {
     case SC_Propose(c) => {
+      log.info("SC_Propose({})", c)
+
       if (state == (LEADER, PREPARE)) {
         propCmds = propCmds ++ List(c)
       }

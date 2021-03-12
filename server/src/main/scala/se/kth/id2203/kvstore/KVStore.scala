@@ -55,7 +55,7 @@ class KVService extends ComponentDefinition {
 
   consensus uponEvent {
     case SC_Decide(command) => {
-      log.info("Paxos decided: {}", command)
+      log.info("Paxos decided: {} {}", command.operation, command.src)
     }
   }
 }
