@@ -24,10 +24,13 @@
 package se.kth.id2203.kvstore
 
 import se.kth.id2203.engine.{SC_Decide, SC_Propose, SequenceConsensus}
+import se.kth.id2203.kvstore.OpCode.Ok
 import se.kth.id2203.networking._
 import se.kth.id2203.overlay.Routing
 import se.sics.kompics.sl._
-import se.sics.kompics.network.Network;
+import se.sics.kompics.network.Network
+
+import scala.collection.mutable;
 
 class KVService extends ComponentDefinition {
 
@@ -38,6 +41,8 @@ class KVService extends ComponentDefinition {
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address")
   val consensus = requires(SequenceConsensus)
+
+  val store: mutable.HashMap[String, String] = new mutable.HashMap[String, String]
 
   //******* Handlers ******
   net uponEvent {
@@ -54,8 +59,20 @@ class KVService extends ComponentDefinition {
   }
 
   consensus uponEvent {
-    case SC_Decide(command) => {
-      log.info("Paxos decided: {} {}", command.operation, command.src)
+    case SC_Decide(Command(op @ Get(key, _), address)) => {
+      log.info("Paxos decided: {} {}", op, address)
+      if (store.contains(key)) {
+        trigger(NetMessage(self, address, op.response(Ok)) -> net)
+
+      }
+    }
+
+    case SC_Decide(Command(op @ Put(key, value, _), address)) => {
+      log.info("Paxos decided: {} {}", op, address)
+      if (store.contains(key)) {
+        trigger(NetMessage(self, address, op.response(Ok)) -> net)
+
+      }
     }
   }
 }

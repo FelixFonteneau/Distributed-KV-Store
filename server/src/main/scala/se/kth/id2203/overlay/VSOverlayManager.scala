@@ -66,12 +66,14 @@ class VSOverlayManager extends ComponentDefinition {
 
   net uponEvent {
     case NetMessage(header, RouteMsg(key, msg)) => {
-      val nodes = lut.get.lookup(key)
-      assert(!nodes.isEmpty)
-      val i = Random.nextInt(nodes.size)
-      val target = nodes.drop(i).head
-      log.info(s"Forwarding message for key $key to $target")
-      trigger(NetMessage(header.src, target, msg) -> net)
+      // val nodes = lut.get.lookup(key)
+      // assert(!nodes.isEmpty)
+      // val i = Random.nextInt(nodes.size)
+      // val target = nodes.drop(i).head
+      log.info(s"Distributing message for key $key to the nodes")
+      for (node <- lut.get.getNodes()) {
+        trigger(NetMessage(header.src, node, msg) -> net)
+      }
     }
     case NetMessage(header, msg: Connect) => {
       lut match {
