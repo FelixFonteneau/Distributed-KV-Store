@@ -1,5 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Client -&gt; bootstrap" type="Application" factoryName="Application" singleton="false">
+    <option name="ALTERNATIVE_JRE_PATH" value="11.0.4" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <option name="MAIN_CLASS_NAME" value="se.kth.id2203.client.Main" />
     <module name="client" />
     <option name="PROGRAM_PARAMETERS" value=" -p 56780 -s localhost:45678" />

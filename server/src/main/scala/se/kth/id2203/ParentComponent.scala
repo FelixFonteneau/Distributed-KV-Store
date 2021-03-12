@@ -58,9 +58,10 @@ class ParentComponent extends ComponentDefinition {
     connect[Network](net -> overlay)
 
     connect[Network](net -> ble)
-
+    connect(Bootstrapping)(boot -> ble)
 
     connect[Network](net -> consensus)
+    connect(Bootstrapping)(boot -> consensus)
     connect(BallotLeaderElection)(ble -> consensus)
 
     // KV

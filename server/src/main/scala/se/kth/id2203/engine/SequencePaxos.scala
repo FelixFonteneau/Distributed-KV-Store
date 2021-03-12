@@ -1,13 +1,15 @@
 package se.kth.id2203.engine
 
-import se.kth.id2203.networking.{NetAddress, NetMessage, UpdateTopology}
-import se.sics.kompics.KompicsEvent
+import se.kth.id2203.bootstrapping.{Booted, Bootstrapping}
+import se.kth.id2203.kvstore.Command
+import se.kth.id2203.networking.{NetAddress, NetMessage}
+import se.kth.id2203.overlay.LookupTable
 import se.sics.kompics.network._
 import se.sics.kompics.sl._
 
 import scala.collection.mutable
 
-class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
+class SequencePaxos extends ComponentDefinition {
   import Role._
   import State._
 
@@ -15,6 +17,7 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
   val ble = requires(BallotLeaderElection)
   // val pl = requires[FIFOPerfectLink]
   val net = requires[Network]
+  val boot = requires(Bootstrapping)
 
   val self = cfg.getValue[NetAddress]("id2203.project.address")
   var pi: Set[NetAddress] = Set(self)
@@ -29,21 +32,30 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
   var nProm = 0L
   var leader: Option[NetAddress] = None
   var na = 0L
-  var va = List.empty[RSM_Command]
+  var va = List.empty[Command]
   var ld = 0
   // leader state
-  var propCmds = List.empty[RSM_Command]
+  var propCmds = List.empty[Command]
   val las = mutable.Map.empty[NetAddress, Int]
   val lds = mutable.Map.empty[NetAddress, Int]
   var lc = 0
-  val acks = mutable.Map.empty[NetAddress, (Long, List[RSM_Command])]
+  val acks = mutable.Map.empty[NetAddress, (Long, List[Command])]
 
-  def suffix(s: List[RSM_Command], l: Int): List[RSM_Command] = {
+  def suffix(s: List[Command], l: Int): List[Command] = {
     s.drop(l)
   }
 
-  def prefix(s: List[RSM_Command], l: Int): List[RSM_Command] = {
+  def prefix(s: List[Command], l: Int): List[Command] = {
     s.take(l)
+  }
+
+  // *** Handlers *** //
+
+  boot uponEvent {
+    case Booted(assignment: LookupTable) => {
+      log.info("Got NodeAssignment, paxos ready.")
+      pi = assignment.getNodes()
+    }
   }
 
   ble uponEvent {
@@ -53,7 +65,7 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
         nL = n
         if (self == l && nL > nProm) {
           state = (LEADER, PREPARE)
-          propCmds = List.empty[RSM_Command]
+          propCmds = List.empty[Command]
 
           for (p <- pi) {
             las(p) = 0
@@ -83,11 +95,11 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
       if (nProm < np) {
         nProm = np
         state = (FOLLOWER, PREPARE)
-        var sfx: List[RSM_Command] = List.empty[RSM_Command]
+        var sfx: List[Command] = List.empty[Command]
         if (na >= n) {
-          sfx = suffix(va, ld) // todo change to ldp si jamais
+          sfx = suffix(va, ldp)
         }
-        trigger(PL_Send(p, Promise(np, na, sfx, ld)) -> pl) // todo change to ldp si jamais
+        trigger(PL_Send(p, Promise(np, na, sfx, ld)) -> pl)
       }
     }
 
@@ -100,7 +112,7 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
 
           va = prefix(va, ld) ++ sfx ++ propCmds
           las(self) = va.size
-          propCmds = List.empty[RSM_Command]
+          propCmds = List.empty[Command]
           state = (LEADER, ACCEPT)
           for (p <- pi) {
             if (p != self && lds.contains(p)) {
@@ -121,7 +133,7 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
     case PL_Deliver(p, AcceptSync(nL, sfx, ldp)) => {
       if ((nProm == nL) && (state == (FOLLOWER, PREPARE))) {
         na = nL; // change nL si jamais
-        va = prefix(va, ld) ++ sfx // change to ldp si jamais
+        va = prefix(va, ldp) ++ sfx
         trigger(PL_Send(p, Accepted(nL, va.size)) -> pl) // change nL si jamais
         state = (FOLLOWER, ACCEPT)
       }
@@ -167,11 +179,11 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
       if (nProm < np) {
         nProm = np
         state = (FOLLOWER, PREPARE)
-        var sfx: List[RSM_Command] = List.empty[RSM_Command]
+        var sfx: List[Command] = List.empty[Command]
         if (na >= n) {
-          sfx = suffix(va, ld) // todo change to ldp si jamais
+          sfx = suffix(va, ldp)
         }
-        trigger(NetMessage(self, p, Promise(np, na, sfx, ld)) -> net) // todo change to ldp si jamais
+        trigger(NetMessage(self, p, Promise(np, na, sfx, ld)) -> net)
       }
     }
 
@@ -185,11 +197,11 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
 
           va = prefix(va, ld) ++ sfx ++ propCmds
           las(self) = va.size
-          propCmds = List.empty[RSM_Command]
+          propCmds = List.empty[Command]
           state = (LEADER, ACCEPT)
           for (p <- pi) {
             if (p != self && lds.contains(p)) {
-              val sfxp = suffix(va, lds(p)) // CHANGE TO LAS
+              val sfxp = suffix(va, lds(p))
               trigger(NetMessage(self, p, AcceptSync(nL, sfxp, lds(p))) -> net)
             }
           }
@@ -206,9 +218,9 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
     case NetMessage(header, AcceptSync(nL, sfx, ldp)) => {
       val p = header.src
       if ((nProm == nL) && (state == (FOLLOWER, PREPARE))) {
-        na = nL; // change nL si jamais
-        va = prefix(va, ld) ++ sfx // change to ldp si jamais
-        trigger(NetMessage(self, p, Accepted(nL, va.size)) -> net) // change nL si jamais
+        na = nL;
+        va = prefix(va, ldp) ++ sfx // change to ldp si jamais
+        trigger(NetMessage(self, p, Accepted(nL, va.size)) -> net)
         state = (FOLLOWER, ACCEPT)
       }
     }
@@ -248,12 +260,6 @@ class SequencePaxos(init: Init[SequencePaxos]) extends ComponentDefinition {
   }
 
   sc uponEvent {
-    case UpdateTopology(newPi) => {
-      pi = newPi
-      majority = (pi.size / 2) + 1
-    }
-
-
     case SC_Propose(c) => {
       if (state == (LEADER, PREPARE)) {
         propCmds = propCmds ++ List(c)

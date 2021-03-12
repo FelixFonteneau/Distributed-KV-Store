@@ -1,13 +1,15 @@
 package se.kth.id2203.engine
 
+import se.kth.id2203.bootstrapping.{Booted, Bootstrapping, GetInitialAssignments, InitialAssignments}
 import se.kth.id2203.networking.{NetAddress, NetMessage, UpdateTopology}
+import se.kth.id2203.overlay.LookupTable
 import se.sics.kompics.network._
 import se.sics.kompics.sl._
 import se.sics.kompics.timer.{ScheduleTimeout, Timer}
 
 import scala.collection.mutable
 
-class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDefinition {
+class GossipLeaderElection extends ComponentDefinition {
 
   private val ballotOne = 0x0100000000L
 
@@ -15,6 +17,8 @@ class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDe
   // val pl = requires[PerfectLink]
   val net = requires[Network]
   val timer = requires[Timer]
+  val boot = requires(Bootstrapping)
+
 
   // val self = init match {
   //   case Init(s: NetAddress) => s
@@ -22,7 +26,7 @@ class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDe
 
   val self = cfg.getValue[NetAddress]("id2203.project.address")
 
-  var topology: Set[NetAddress] = Set(self)// todo
+  var topology: Set[NetAddress] = Set(self)
   // to determine cfg.getValue[List[Address]]("ble.simulation.topology");
   val delta = 3 // todo cfg.getValue[Long]("ble.simulation.delay")
   var majority = (topology.size / 2) + 1
@@ -44,6 +48,8 @@ class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDe
     assert(r > 0) // should not produce negative numbers!
     r
   }
+
+  // *** Handlers *** //
 
   def incrementBallotBy(ballot: Long, inc: Int): Long = {
     ballot + inc.toLong * ballotOne
@@ -77,13 +83,20 @@ class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDe
       }
     }
   }
-  // todo !!!
-  // ctrl uponEvent {
-  //   case _: Start =>  {
-  //     startTimer(period)
-  //   }
-  // }
 
+  // todo
+  ctrl uponEvent {
+    case _: Start =>  {
+      startTimer(period)
+    }
+  }
+
+  boot uponEvent {
+    case Booted(assignment: LookupTable) => {
+      log.info("Got NodeAssignment, ble ready.")
+      topology = assignment.getNodes()
+    }
+  }
 
   timer uponEvent {
     case CheckTimeout(_) => {
@@ -118,12 +131,6 @@ class GossipLeaderElection(init: Init[GossipLeaderElection]) extends ComponentDe
     }
   }
 
-  ble uponEvent {
-    case UpdateTopology(newPi) => {
-      topology = newPi
-      majority = (topology.size / 2) + 1
-    }
-  }
 
   // pl uponEvent {
   //   case PL_Deliver(src, HeartbeatReq(r, hb)) => {

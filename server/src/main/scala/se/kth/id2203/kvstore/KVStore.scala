@@ -23,7 +23,7 @@
  */
 package se.kth.id2203.kvstore
 
-import se.kth.id2203.engine.SequenceConsensus
+import se.kth.id2203.engine.{SC_Decide, SC_Propose, SequenceConsensus}
 import se.kth.id2203.networking._
 import se.kth.id2203.overlay.Routing
 import se.sics.kompics.sl._
@@ -42,12 +42,20 @@ class KVService extends ComponentDefinition {
   //******* Handlers ******
   net uponEvent {
     case NetMessage(header, op @ Get(key, _)) => {
-      log.info("Got operation {}! Now implement me please :)", op)
-      trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net)
+      log.info("Got operation {}!", op)
+      trigger(SC_Propose(Command(op, header.src)) -> consensus)
+      // trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net)
     }
     case NetMessage(header, op @ Put(key, value, _)) => {
-      log.info("Got operation {}! Now implement me please :)", op)
-      trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net)
+      log.info("Got operation {}!", op)
+      trigger(SC_Propose(Command(op, header.src)) -> consensus)
+      // trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net)
+    }
+  }
+
+  consensus uponEvent {
+    case SC_Decide(command) => {
+      log.info("Paxos decided: {}", command)
     }
   }
 }

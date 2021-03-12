@@ -1,6 +1,6 @@
 package se.kth.id2203.engine
 
-import se.kth.id2203.networking.{NetAddress, UpdateTopology}
+import se.kth.id2203.kvstore.{Command}
 import se.sics.kompics.KompicsEvent
 import se.sics.kompics.sl._
 
@@ -11,11 +11,11 @@ import se.sics.kompics.sl._
 
 case class Prepare(nL: Long, ld: Int, na: Long) extends KompicsEvent
 
-case class Promise(nL: Long, na: Long, suffix: List[RSM_Command], ld: Int) extends KompicsEvent
+case class Promise(nL: Long, na: Long, suffix: List[Command], ld: Int) extends KompicsEvent
 
-case class AcceptSync(nL: Long, suffix: List[RSM_Command], ld: Int) extends KompicsEvent
+case class AcceptSync(nL: Long, suffix: List[Command], ld: Int) extends KompicsEvent
 
-case class Accept(nL: Long, c: RSM_Command) extends KompicsEvent
+case class Accept(nL: Long, c: Command) extends KompicsEvent
 
 case class Accepted(nL: Long, m: Int) extends KompicsEvent
 
@@ -34,12 +34,8 @@ object Role extends Enumeration {
 object SequenceConsensus extends Port {
   request[SC_Propose]
   indication[SC_Decide]
-  request[UpdateTopology]
 }
 
-case class SC_Propose(value: RSM_Command) extends KompicsEvent
+case class SC_Propose(value: Command) extends KompicsEvent
 
-case class SC_Decide(value: RSM_Command) extends KompicsEvent
-
-
-trait RSM_Command
+case class SC_Decide(value: Command) extends KompicsEvent
