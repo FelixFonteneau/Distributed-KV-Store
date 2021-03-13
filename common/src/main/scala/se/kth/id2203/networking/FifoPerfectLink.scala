@@ -20,6 +20,10 @@ class FifoPerfectLink (init: Init[FifoPerfectLink]) extends ComponentDefinition 
 
   fpl uponEvent {
     case FPL_Send(dest, message) => {
+      if (!listen.contains(dest)) {
+        listen.addOne(dest, 0)
+        next.addOne(dest, 1)
+      }
       listen(dest) = listen(dest) + 1
       trigger(NetMessage(self, dest, MessageDated(message, listen(dest))) -> net)
     }
@@ -36,6 +40,10 @@ class FifoPerfectLink (init: Init[FifoPerfectLink]) extends ComponentDefinition 
 
   net uponEvent {
     case NetMessage(header, MessageDated(message, sn)) => {
+      if (!listen.contains(header.src)) {
+        listen.addOne(header.src, 0)
+        next.addOne(header.src, 1)
+      }
       pending.add((header.src, message, sn))
       var update: Boolean = true
       while (update) {
