@@ -1,6 +1,5 @@
 package se.kth.id2203.networking
 
-import se.kth.id2203.networking.NetAddress
 import se.sics.kompics.KompicsEvent
 import se.sics.kompics.sl._
 

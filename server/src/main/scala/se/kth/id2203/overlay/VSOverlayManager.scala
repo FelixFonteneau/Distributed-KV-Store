@@ -24,11 +24,12 @@
 package se.kth.id2203.overlay
 
 import se.kth.id2203.bootstrapping._
+import se.kth.id2203.kvstore.{Command, Operation}
 import se.kth.id2203.networking._
 import se.sics.kompics.sl._
 import se.sics.kompics.network.Network
 import se.sics.kompics.timer.Timer
-import util.Random
+
 
 /**
   * The V(ery)S(imple)OverlayManager.
@@ -43,10 +44,12 @@ import util.Random
 class VSOverlayManager extends ComponentDefinition {
 
   //******* Ports ******
-  val route = provides(Routing)
+  // val route = provides(Routing)
   val boot = requires(Bootstrapping)
   val net = requires[Network]
   val timer = requires[Timer]
+  val fpl = requires(FifoPerfectP2PLink)
+
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address")
   private var lut: Option[LookupTable] = None
@@ -61,18 +64,19 @@ class VSOverlayManager extends ComponentDefinition {
     case Booted(assignment: LookupTable) => {
       log.info("Got NodeAssignment, overlay ready.")
       lut = Some(assignment)
+      trigger(UpdateTopology(assignment.getNodes()) -> fpl)
     }
   }
 
   net uponEvent {
-    case NetMessage(header, RouteMsg(key, msg)) => {
+    case NetMessage(header, RouteMsg(key, msg: Operation)) => {
       // val nodes = lut.get.lookup(key)
       // assert(!nodes.isEmpty)
       // val i = Random.nextInt(nodes.size)
       // val target = nodes.drop(i).head
       log.info(s"Distributing message for key $key to the nodes")
       for (node <- lut.get.getNodes()) {
-        trigger(NetMessage(header.src, node, msg) -> net)
+        trigger(FPL_Send(node, Command(msg, header.src, self)) -> fpl)
       }
     }
     case NetMessage(header, msg: Connect) => {
@@ -87,14 +91,15 @@ class VSOverlayManager extends ComponentDefinition {
     }
   }
 
-  route uponEvent {
-    case RouteMsg(key, msg) => {
-      val nodes = lut.get.lookup(key)
-      assert(!nodes.isEmpty)
-      val i = Random.nextInt(nodes.size)
-      val target = nodes.drop(i).head
-      log.info(s"Routing message for key $key to $target")
-      trigger(NetMessage(self, target, msg) -> net)
-    }
-  }
+
+  // route uponEvent {
+  //   case RouteMsg(key, msg) => {
+  //     val nodes = lut.get.lookup(key)
+  //     assert(!nodes.isEmpty)
+  //     val i = Random.nextInt(nodes.size)
+  //     val target = nodes.drop(i).head
+  //     log.info(s"Routing message for key $key to $target")
+  //     trigger(NetMessage(self, target, msg) -> net)
+  //   }
+  // }
 }

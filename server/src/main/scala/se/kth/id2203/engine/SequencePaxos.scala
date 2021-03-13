@@ -2,9 +2,8 @@ package se.kth.id2203.engine
 
 import se.kth.id2203.bootstrapping.{Booted, Bootstrapping}
 import se.kth.id2203.kvstore.Command
-import se.kth.id2203.networking.{NetAddress, NetMessage}
+import se.kth.id2203.networking.{FPL_Send, FPL_Deliver, FifoPerfectP2PLink, NetAddress}
 import se.kth.id2203.overlay.LookupTable
-import se.sics.kompics.network._
 import se.sics.kompics.sl._
 
 import scala.collection.mutable
@@ -15,9 +14,9 @@ class SequencePaxos extends ComponentDefinition {
 
   val sc = provides(SequenceConsensus)
   val ble = requires(BallotLeaderElection)
-  // val pl = requires[FIFOPerfectLink]
-  val net = requires[Network]
   val boot = requires(Bootstrapping)
+  val fpl = requires(FifoPerfectP2PLink)
+
 
   val self = cfg.getValue[NetAddress]("id2203.project.address")
   var pi: Set[NetAddress] = Set(self)
@@ -55,6 +54,9 @@ class SequencePaxos extends ComponentDefinition {
     case Booted(assignment: LookupTable) => {
       log.info("Got NodeAssignment, paxos ready.")
       pi = assignment.getNodes()
+      for (p <- pi) {
+        log.info("Node in topology: {}", p)
+      }
     }
   }
 
@@ -77,8 +79,7 @@ class SequencePaxos extends ComponentDefinition {
           lc = 0
           for (p <- pi) {
             if (p != self) {
-              trigger(NetMessage(self, p, Prepare(nL, ld, na)) -> net)
-              // trigger(PL_Send(p, Prepare(nL, ld, na)) -> pl)
+              trigger(FPL_Send(p, Prepare(nL, ld, na)) -> fpl)
             }
           }
           acks(l) = (na, suffix(va, ld))
@@ -91,8 +92,9 @@ class SequencePaxos extends ComponentDefinition {
     }
   }
 
-  /* pl uponEvent {
-    case PL_Deliver(p, Prepare(np, ldp, n)) => {
+  fpl uponEvent {
+    case FPL_Deliver(p, Prepare(np, ldp, n)) => {
+      log.info("Prepare({}, {} {})", np, ldp, n)
       if (nProm < np) {
         nProm = np
         state = (FOLLOWER, PREPARE)
@@ -100,11 +102,12 @@ class SequencePaxos extends ComponentDefinition {
         if (na >= n) {
           sfx = suffix(va, ldp)
         }
-        trigger(PL_Send(p, Promise(np, na, sfx, ld)) -> pl)
+        trigger(FPL_Send(p, Promise(np, na, sfx, ld)) -> fpl)
       }
     }
 
-    case PL_Deliver(a, Promise(n, na, sfxa, lda)) => {
+    case FPL_Deliver(a, Promise(n, na, sfxa, lda)) => {
+      log.info("Promise({}, {}, {}, {})", n, na, sfxa,lda)
       if ((n == nL) && (state == (LEADER, PREPARE))) {
         acks(a) = (na, sfxa)
         lds(a) = lda
@@ -118,127 +121,38 @@ class SequencePaxos extends ComponentDefinition {
           for (p <- pi) {
             if (p != self && lds.contains(p)) {
               val sfxp = suffix(va, lds(p)) // CHANGE TO LAS
-              trigger(PL_Send(p, AcceptSync(nL, sfxp, lds(p))) -> pl)
+              trigger(FPL_Send(p, AcceptSync(nL, sfxp, lds(p))) -> fpl)
             }
           }
         }
       } else if ((n == nL) && (state == (LEADER, ACCEPT))) {
         lds(a) = lda
         val sfx = suffix(va, lds(a))
-        trigger(PL_Send(a, AcceptSync(nL, sfx, lds(a))) -> pl)
+        trigger(FPL_Send(a, AcceptSync(nL, sfx, lds(a))) -> fpl)
         if (lc != 0) {
-          trigger(PL_Send(a, Decide(ld, nL)) -> pl)
+          trigger(FPL_Send(a, Decide(ld, nL)) -> fpl)
         }
       }
     }
-    case PL_Deliver(p, AcceptSync(nL, sfx, ldp)) => {
+    case FPL_Deliver(p, AcceptSync(nL, sfx, ldp)) => {
+      log.info("AcceptSync({}, {}, {})", nL, sfx,ldp)
       if ((nProm == nL) && (state == (FOLLOWER, PREPARE))) {
         na = nL; // change nL si jamais
         va = prefix(va, ldp) ++ sfx
-        trigger(PL_Send(p, Accepted(nL, va.size)) -> pl) // change nL si jamais
+        trigger(FPL_Send(p, Accepted(nL, va.size)) -> fpl) // change nL si jamais
         state = (FOLLOWER, ACCEPT)
       }
     }
 
-    case PL_Deliver(p, Accept(nL, c)) => {
+    case FPL_Deliver(p, Accept(nL, c)) => {
+      log.info("Accept({}, {})", nL, c)
       if ((nProm == nL) && (state == (FOLLOWER, ACCEPT))) {
         va = va ++ List(c)
-        trigger(PL_Send(p, Accepted(nL, va.size)) -> pl)
+        trigger(FPL_Send(p, Accepted(nL, va.size)) -> fpl)
       }
     }
 
-    case PL_Deliver(_, Decide(l, nL)) => {
-      if (nProm == nL) { // check the nL
-        while (ld < l) {
-          trigger(SC_Decide(va(ld)) -> sc);
-          ld = ld + 1
-        }
-      }
-    }
-
-    case PL_Deliver(a, Accepted(n, m)) => {
-      if ((n == nL) && (state == (LEADER, ACCEPT))) {
-        las(a) = m
-        val tmp = pi.filter(p => las(p) >= m)
-        if (lc < m && tmp.size >= majority) {
-          lc = m
-          for (p <- pi.filter(p => lds.contains(p))) {
-            trigger(PL_Send(p, Decide(lc, nL)) -> pl)
-          }
-        }
-
-      }
-    }
-  }
-  */
-
-  // todo add a propose to all acceptors
-
-  net uponEvent {
-    case NetMessage(header, Prepare(np, ldp, n)) => { // todo find the ldp to put in the event function
-      log.info("Prepare({}, {}, {})", np, ldp, n)
-      val p = header.src
-      if (nProm < np) {
-        nProm = np
-        state = (FOLLOWER, PREPARE)
-        var sfx: List[Command] = List.empty[Command]
-        if (na >= n) {
-          sfx = suffix(va, ldp)
-        }
-        trigger(NetMessage(self, p, Promise(np, na, sfx, ld)) -> net)
-      }
-    }
-
-    case NetMessage(header, Promise(n, na, sfxa, lda)) => {
-      log.info("Promise({}, {}, {}, {})", n, na, sfxa, lda)
-      val a = header.src
-      if ((n == nL) && (state == (LEADER, PREPARE))) {
-        acks(a) = (na, sfxa)
-        lds(a) = lda
-        if (acks.size >= majority) { // change to ==
-          var (k, sfx) = acks.values.maxBy(_._1)
-
-          va = prefix(va, ld) ++ sfx ++ propCmds
-          las(self) = va.size
-          propCmds = List.empty[Command]
-          state = (LEADER, ACCEPT)
-          for (p <- pi) {
-            if (p != self && lds.contains(p)) {
-              val sfxp = suffix(va, lds(p))
-              trigger(NetMessage(self, p, AcceptSync(nL, sfxp, lds(p))) -> net)
-            }
-          }
-        }
-      } else if ((n == nL) && (state == (LEADER, ACCEPT))) {
-        lds(a) = lda
-        val sfx = suffix(va, lds(a))
-        trigger(NetMessage(self, a, AcceptSync(nL, sfx, lds(a))) -> net)
-        if (lc != 0) {
-          trigger(NetMessage(self, a, Decide(ld, nL)) -> net)
-        }
-      }
-    }
-    case NetMessage(header, AcceptSync(nL, sfx, ldp)) => {
-      log.info("AcceptSync({}, {}, {})", nL, sfx, ldp)
-      val p = header.src
-      if ((nProm == nL) && (state == (FOLLOWER, PREPARE))) {
-        na = nL;
-        va = prefix(va, ldp) ++ sfx // change to ldp si jamais
-        trigger(NetMessage(self, p, Accepted(nL, va.size)) -> net)
-        state = (FOLLOWER, ACCEPT)
-      }
-    }
-
-    case NetMessage(header, Accept(nL, c)) => {
-      log.info("AcceptSync({}, {})", nL, c)
-      val p = header.src
-      if ((nProm == nL) && (state == (FOLLOWER, ACCEPT))) {
-        va = va ++ List(c)
-        trigger(NetMessage(self, p, Accepted(nL, va.size)) -> net)
-      }
-    }
-
-    case NetMessage(_, Decide(l, nL)) => {
+    case FPL_Deliver(_, Decide(l, nL)) => {
       log.info("Decide({}, {})", l, nL)
       if (nProm == nL) { // check the nL
         while (ld < l) {
@@ -248,18 +162,19 @@ class SequencePaxos extends ComponentDefinition {
       }
     }
 
-    case NetMessage(header, Accepted(n, m)) => {
+    case FPL_Deliver(a, Accepted(n, m)) => {
       log.info("Accepted({}, {})", n, m)
-
-      val a = header.src
-
       if ((n == nL) && (state == (LEADER, ACCEPT))) {
         las(a) = m
         val tmp = pi.filter(p => las(p) >= m)
         if (lc < m && tmp.size >= majority) {
           lc = m
+          for (p <- lds) {
+            log.info("aa: {}", p)
+          }
           for (p <- pi.filter(p => lds.contains(p))) {
-            trigger(NetMessage(self, p, Decide(lc, nL)) -> net)
+            log.info("aaa : {}", p)
+            trigger(FPL_Send(p, Decide(lc, nL)) -> fpl)
           }
         }
 
@@ -270,7 +185,6 @@ class SequencePaxos extends ComponentDefinition {
   sc uponEvent {
     case SC_Propose(c) => {
       log.info("SC_Propose({})", c)
-
       if (state == (LEADER, PREPARE)) {
         propCmds = propCmds ++ List(c)
       }
@@ -278,7 +192,7 @@ class SequencePaxos extends ComponentDefinition {
         va = va ++ List(c)
         las(self) = las(self) + 1
         for (p <- pi.filter(p => lds.contains(p) && p != self)) {
-          trigger(NetMessage(self, p, Accept(nL, c)) -> net)
+          trigger(FPL_Send(p, Accept(nL, c)) -> fpl)
         }
       }
     }

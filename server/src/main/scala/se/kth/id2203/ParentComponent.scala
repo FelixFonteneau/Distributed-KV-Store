@@ -26,7 +26,7 @@ package se.kth.id2203
 import se.kth.id2203.bootstrapping._
 import se.kth.id2203.engine.{BallotLeaderElection, GossipLeaderElection, SequenceConsensus, SequencePaxos}
 import se.kth.id2203.kvstore.KVService
-import se.kth.id2203.networking.NetAddress
+import se.kth.id2203.networking.{FifoPerfectLink, FifoPerfectP2PLink, NetAddress}
 import se.kth.id2203.overlay._
 import se.sics.kompics.sl._
 import se.sics.kompics.Init
@@ -37,8 +37,13 @@ class ParentComponent extends ComponentDefinition {
 
   //******* Ports ******
   val net = requires[Network]
+
   val timer = requires[Timer]
   //******* Children ******
+
+  val fpl = create(classOf[FifoPerfectLink], Init.NONE)
+
+
   val overlay = create(classOf[VSOverlayManager], Init.NONE)
   val kv = create(classOf[KVService], Init.NONE)
   val boot = cfg.readValue[NetAddress]("id2203.project.bootstrap-address") match {
@@ -46,29 +51,36 @@ class ParentComponent extends ComponentDefinition {
     case None    => create(classOf[BootstrapServer], Init.NONE) // start in server mode
   }
 
-  // todo init with good values
   val ble = create(classOf[GossipLeaderElection], Init.NONE)
   val consensus = create(classOf[SequencePaxos], Init.NONE)
 
+
   {
+    connect[Network](net -> fpl)
+
     connect[Timer](timer -> boot)
     connect[Network](net -> boot)
+
     // Overlay
+    connect(FifoPerfectP2PLink)(fpl -> overlay)
     connect(Bootstrapping)(boot -> overlay)
     connect[Network](net -> overlay)
 
-    connect[Network](net -> ble)
+    // connect[Network](net -> ble)
+    connect(FifoPerfectP2PLink)(fpl -> ble)
     connect[Timer](timer -> ble)
     connect(Bootstrapping)(boot -> ble)
 
 
-    connect[Network](net -> consensus)
+    // connect[Network](net -> consensus)
+    connect(FifoPerfectP2PLink)(fpl -> consensus)
     connect(Bootstrapping)(boot -> consensus)
     connect(BallotLeaderElection)(ble -> consensus)
 
     // KV
-    connect(Routing)(overlay -> kv)
+    // connect(Routing)(overlay -> kv)
     connect[Network](net -> kv)
+    connect(FifoPerfectP2PLink)(fpl -> kv)
     connect(SequenceConsensus)(consensus -> kv)
   }
 }

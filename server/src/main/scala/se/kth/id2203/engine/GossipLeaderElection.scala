@@ -1,9 +1,8 @@
 package se.kth.id2203.engine
 
 import se.kth.id2203.bootstrapping.{Booted, Bootstrapping}
-import se.kth.id2203.networking.{NetAddress, NetMessage}
+import se.kth.id2203.networking.{FPL_Deliver, FPL_Send, FifoPerfectP2PLink, NetAddress}
 import se.kth.id2203.overlay.LookupTable
-import se.sics.kompics.network._
 import se.sics.kompics.sl._
 import se.sics.kompics.timer._
 
@@ -15,9 +14,9 @@ class GossipLeaderElection extends ComponentDefinition {
 
   val ble = provides(BallotLeaderElection)
   // val pl = requires[PerfectLink]
-  val net = requires[Network]
   val timer = requires[Timer]
   val boot = requires(Bootstrapping)
+  val fpl = requires(FifoPerfectP2PLink)
 
 
   val self = cfg.getValue[NetAddress]("id2203.project.address")
@@ -107,48 +106,26 @@ class GossipLeaderElection extends ComponentDefinition {
       for (p <- topology) {
         if (p != self) {
           // trigger(PL_Send(p, HeartbeatReq(round, highestBallot)) -> pl);
-          trigger(NetMessage(self, p, HeartbeatReq(round, highestBallot)) -> net)
+          trigger(FPL_Send(p, HeartbeatReq(round, highestBallot)) -> fpl)
         }
       }
       startTimer(period)
     }
   }
 
-  net uponEvent {
-    case NetMessage(header, HeartbeatReq(r, hb)) => {
-      // log.info("HeartbeatReq({}, {})", r, hb)
+  fpl uponEvent {
+    case FPL_Deliver(src, HeartbeatReq(r, hb)) => {
       if (hb > highestBallot) {
         highestBallot = hb
       }
-      trigger(NetMessage(self, header.src, HeartbeatResp(r, ballot)) -> net)
+      trigger(FPL_Send(src, HeartbeatResp(r, ballot)) -> fpl)
     }
-    case NetMessage(header, HeartbeatResp(r, b)) => {
-      // log.info("HeartbeatResp({}, {})", r, b)
-
+    case FPL_Deliver(src, HeartbeatResp(r, b)) => {
       if (r == round) {
-        ballots += (header.src -> b)
+        ballots += (src -> b)
       } else {
         period = period + delta
       }
     }
   }
-
-
-  // pl uponEvent {
-  //   case PL_Deliver(src, HeartbeatReq(r, hb)) => {
-  //     /* INSERT YOUR CODE HERE */
-  //     if (hb > highestBallot) {
-  //       highestBallot = hb
-  //     }
-  //     trigger(PL_Send(src, HeartbeatResp(r, ballot)) -> pl)
-  //   }
-  //   case PL_Deliver(src, HeartbeatResp(r, b)) => {
-  //     /* INSERT YOUR CODE HERE */
-  //     if (r == round) {
-  //       ballots += (src -> b)
-  //     } else {
-  //       period = period + delta
-  //     }
-  //   }
-  // }
 }

@@ -7,7 +7,7 @@ import se.sics.kompics.KompicsEvent
 import scala.collection.mutable
 
 
-class FifoPerfectLink (init: Init[FifoPerfectLink]) extends ComponentDefinition {
+class FifoPerfectLink extends ComponentDefinition {
   val net = requires[Network]
   val fpl = provides(FifoPerfectP2PLink)
 
@@ -18,11 +18,23 @@ class FifoPerfectLink (init: Init[FifoPerfectLink]) extends ComponentDefinition 
   val next: mutable.Map[NetAddress, Long] = mutable.Map(self -> 1)
   var pending: mutable.Set[(NetAddress, KompicsEvent, Long)] = mutable.Set.empty
 
+
+  private def addToTopology(p: NetAddress): Unit = {
+    if (!pi.contains(p)) {
+      pi = pi ++ Set(p)
+    }
+    if (!listen.contains(p)) {
+      listen.addOne(p, 0)
+    }
+    if (!next.contains(p)) {
+      next.addOne(p, 1)
+    }
+  }
+
   fpl uponEvent {
     case FPL_Send(dest, message) => {
       if (!listen.contains(dest)) {
-        listen.addOne(dest, 0)
-        next.addOne(dest, 1)
+        addToTopology(dest)
       }
       listen(dest) = listen(dest) + 1
       trigger(NetMessage(self, dest, MessageDated(message, listen(dest))) -> net)
@@ -30,10 +42,8 @@ class FifoPerfectLink (init: Init[FifoPerfectLink]) extends ComponentDefinition 
 
     case UpdateTopology(topology) => {
       val newNodes = topology.filter(p => !pi.contains(p))
-      pi = topology
       for (p <- newNodes) {
-        next(p) = 1
-        listen(p) = 0
+        addToTopology(p)
       }
     }
   }
@@ -41,8 +51,7 @@ class FifoPerfectLink (init: Init[FifoPerfectLink]) extends ComponentDefinition 
   net uponEvent {
     case NetMessage(header, MessageDated(message, sn)) => {
       if (!listen.contains(header.src)) {
-        listen.addOne(header.src, 0)
-        next.addOne(header.src, 1)
+        addToTopology(header.src)
       }
       pending.add((header.src, message, sn))
       var update: Boolean = true

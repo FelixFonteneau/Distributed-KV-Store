@@ -26,18 +26,16 @@ package se.kth.id2203.kvstore
 import se.kth.id2203.engine.{SC_Decide, SC_Propose, SequenceConsensus}
 import se.kth.id2203.kvstore.OpCode.{Created, NotFound, Ok, Updated}
 import se.kth.id2203.networking._
-import se.kth.id2203.overlay.Routing
-import se.sics.kompics.sl._
 import se.sics.kompics.network.Network
+import se.sics.kompics.sl._
 
 import scala.collection.mutable;
 
 class KVService extends ComponentDefinition {
 
   //******* Ports ******
+  val fpl = requires(FifoPerfectP2PLink)
   val net = requires[Network]
-  val route = requires(Routing)
-
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address")
   val consensus = requires(SequenceConsensus)
@@ -45,38 +43,42 @@ class KVService extends ComponentDefinition {
   val store: mutable.HashMap[String, String] = new mutable.HashMap[String, String]
 
   //******* Handlers ******
-  net uponEvent {
-    case NetMessage(header, op @ Get(key, _)) => {
-      log.info("Got operation {}!", op)
-      trigger(SC_Propose(Command(op, header.src)) -> consensus)
-      // trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net)
-    }
-    case NetMessage(header, op @ Put(key, value, _)) => {
-      log.info("Got operation {}!", op)
-      trigger(SC_Propose(Command(op, header.src)) -> consensus)
-      // trigger(NetMessage(self, header.src, op.response(OpCode.NotImplemented)) -> net)
+  fpl uponEvent {
+    case FPL_Deliver(src, command: Command) => {
+      log.info("Got command {} {} {}.", command.operation, command.src, command.responsibleNode)
+      trigger(SC_Propose(command) -> consensus)
     }
   }
 
+
+  /**
+   * After consensus, we register the operations
+   */
   consensus uponEvent {
-    case SC_Decide(Command(op @ Get(key, _), address)) => {
+    case SC_Decide(Command(op @ Get(key, _), address, responsibleNode)) => {
       log.info("Paxos decided: {} {}", op, address)
+      var response: OperationResponse = op.response(NotFound)
       if (store.contains(key)) {
         val value = store(key)
-        trigger(NetMessage(self, address, op.response(Ok, value)) -> net)
-      } else {
-        trigger(NetMessage(self, address, op.response(NotFound)) -> net)
+        response = op.response(Ok, value)
+      }
+      if (responsibleNode == self) {
+        trigger(NetMessage(self, address, response) -> net)
       }
     }
 
-    case SC_Decide(Command(op @ Put(key, value, _), address)) => {
+    case SC_Decide(Command(op @ Put(key, value, _), address, responsibleNode)) => {
       log.info("Paxos decided: {} {}", op, address)
+      var response: OperationResponse = op.response(Created)
       if (store.contains(key)) {
         store(key) = value
-        trigger(NetMessage(self, address, op.response(Updated)) -> net)
+        response = op.response(Updated)
       } else {
         store.addOne(key, value)
-        trigger(NetMessage(self, address, op.response(Created)) -> net)
+        response = op.response(Created)
+      }
+      if (responsibleNode == self) {
+        trigger(NetMessage(self, address, response) -> net)
       }
     }
   }
