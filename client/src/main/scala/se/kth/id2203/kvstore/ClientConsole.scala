@@ -90,9 +90,17 @@ class ClientConsole(val service: ClientService) extends CommandConsole with Pars
   val casCommand = parsed(casParser,
                           usage = "cas <key> <ref-value> <new-value>",
                           descr = "Executes cas for <key> <ref-value> <new-value>.") {
-    case CasObject(key, refValue, newValue) =>
+    case CasObject(key, refValue, newValue) => {
       // Create a CAS operation through ClientService
-      out.println("Implement me")
+      val fr = service.cas(key, refValue, newValue)
+      out.println("Operation sent! Awaiting response...")
+      try {
+        val r = Await.result(fr, 5.seconds)
+        out.println("Operation complete! Response was: " + r.status)
+      } catch {
+        case e: Throwable => logger.error("Error during op.", e)
+      }
+    }
   }
 
 }

@@ -24,7 +24,7 @@
 package se.kth.id2203.kvstore
 
 import se.kth.id2203.engine.{SC_Decide, SC_Propose, SequenceConsensus}
-import se.kth.id2203.kvstore.OpCode.{Created, NotFound, Ok, Updated}
+import se.kth.id2203.kvstore.OpCode.{Created, NotFound, Ok, Updated, ValueDoesNotMatch}
 import se.kth.id2203.networking._
 import se.sics.kompics.network.Network
 import se.sics.kompics.sl._
@@ -76,6 +76,22 @@ class KVService extends ComponentDefinition {
       } else {
         store.addOne(key, value)
         response = op.response(Created)
+      }
+      if (responsibleNode == self) {
+        trigger(NetMessage(self, address, response) -> net)
+      }
+    }
+
+    case SC_Decide(Command(op @ CAS(key, refValue, newValue, _), address, responsibleNode)) => {
+      log.info("Paxos decided: {} {}", op, address)
+      var response: OperationResponse = op.response(NotFound)
+      if (store.contains(key)) {
+        if (store(key) == refValue) {
+          store(key) = newValue
+          response = op.response(Updated)
+        } else {
+          response = op.response(ValueDoesNotMatch)
+        }
       }
       if (responsibleNode == self) {
         trigger(NetMessage(self, address, response) -> net)
