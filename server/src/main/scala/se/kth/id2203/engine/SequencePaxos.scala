@@ -62,7 +62,7 @@ class SequencePaxos extends ComponentDefinition {
 
   ble uponEvent {
     case BLE_Leader(l, n) => {
-      log.info("BLE_Leader({}, {})", l, n)
+      log.debug("BLE_Leader({}, {})", l, n)
       if (n > nL) {
         leader = Option(l)
         nL = n
@@ -94,7 +94,7 @@ class SequencePaxos extends ComponentDefinition {
 
   fpl uponEvent {
     case FPL_Deliver(p, Prepare(np, ldp, n)) => {
-      log.info("Prepare({}, {} {})", np, ldp, n)
+      log.debug("Prepare({}, {} {})", np, ldp, n)
       if (nProm < np) {
         nProm = np
         state = (FOLLOWER, PREPARE)
@@ -107,7 +107,7 @@ class SequencePaxos extends ComponentDefinition {
     }
 
     case FPL_Deliver(a, Promise(n, na, sfxa, lda)) => {
-      log.info("Promise({}, {}, {}, {})", n, na, sfxa,lda)
+      log.debug("Promise({}, {}, {}, {})", n, na, sfxa,lda)
       if ((n == nL) && (state == (LEADER, PREPARE))) {
         acks(a) = (na, sfxa)
         lds(a) = lda
@@ -135,7 +135,7 @@ class SequencePaxos extends ComponentDefinition {
       }
     }
     case FPL_Deliver(p, AcceptSync(nL, sfx, ldp)) => {
-      log.info("AcceptSync({}, {}, {})", nL, sfx,ldp)
+      log.debug("AcceptSync({}, {}, {})", nL, sfx,ldp)
       if ((nProm == nL) && (state == (FOLLOWER, PREPARE))) {
         na = nL; // change nL si jamais
         va = prefix(va, ldp) ++ sfx
@@ -145,7 +145,7 @@ class SequencePaxos extends ComponentDefinition {
     }
 
     case FPL_Deliver(p, Accept(nL, c)) => {
-      log.info("Accept({}, {})", nL, c)
+      log.debug("Accept({}, {})", nL, c)
       if ((nProm == nL) && (state == (FOLLOWER, ACCEPT))) {
         va = va ++ List(c)
         trigger(FPL_Send(p, Accepted(nL, va.size)) -> fpl)
@@ -153,7 +153,7 @@ class SequencePaxos extends ComponentDefinition {
     }
 
     case FPL_Deliver(_, Decide(l, nL)) => {
-      log.info("Decide({}, {})", l, nL)
+      log.debug("Decide({}, {})", l, nL)
       if (nProm == nL) { // check the nL
         while (ld < l) {
           trigger(SC_Decide(va(ld)) -> sc)
@@ -163,17 +163,17 @@ class SequencePaxos extends ComponentDefinition {
     }
 
     case FPL_Deliver(a, Accepted(n, m)) => {
-      log.info("Accepted({}, {})", n, m)
+      log.debug("Accepted({}, {})", n, m)
       if ((n == nL) && (state == (LEADER, ACCEPT))) {
         las(a) = m
         val tmp = pi.filter(p => las(p) >= m)
         if (lc < m && tmp.size >= majority) {
           lc = m
-          for (p <- lds) {
-            log.info("aa: {}", p)
-          }
+          // for (p <- lds) {
+          //   log.debug("aa: {}", p)
+          // }
           for (p <- pi.filter(p => lds.contains(p))) {
-            log.info("aaa : {}", p)
+            // log.debug("aaa : {}", p)
             trigger(FPL_Send(p, Decide(lc, nL)) -> fpl)
           }
         }
@@ -184,7 +184,7 @@ class SequencePaxos extends ComponentDefinition {
 
   sc uponEvent {
     case SC_Propose(c) => {
-      log.info("SC_Propose({})", c)
+      log.debug("SC_Propose({})", c)
       if (state == (LEADER, PREPARE)) {
         propCmds = propCmds ++ List(c)
       }

@@ -13,7 +13,6 @@ class GossipLeaderElection extends ComponentDefinition {
   private val ballotOne = 0x0100000000L
 
   val ble = provides(BallotLeaderElection)
-  // val pl = requires[PerfectLink]
   val timer = requires[Timer]
   val boot = requires(Bootstrapping)
   val fpl = requires(FifoPerfectP2PLink)
@@ -22,10 +21,10 @@ class GossipLeaderElection extends ComponentDefinition {
   val self = cfg.getValue[NetAddress]("id2203.project.address")
 
   var topology: Set[NetAddress] = Set(self)
-  val delta = 100 // todo cfg.getValue[Long]("ble.simulation.delay")
+  val delta = 100
   var majority = (topology.size / 2) + 1
 
-  private var period = 250 //todo // cfg.getValue[Long]("ble.simulation.delay")
+  private var period = 250
   private val ballots = mutable.Map.empty[NetAddress, Long]
 
   private var round = 0L
@@ -97,7 +96,7 @@ class GossipLeaderElection extends ComponentDefinition {
 
   timer uponEvent {
     case CheckTimeout(_) => {
-      // log.info("CheckTimeout()")
+      // log.debug("CheckTimeout()")
       if ((ballots.size + 1) >= (topology.size / 2)) {
         checkLeader()
       }
