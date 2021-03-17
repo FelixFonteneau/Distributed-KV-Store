@@ -34,6 +34,14 @@ object GlobalScenario {
     }
   }
 
+  private def intToHistoryAddress(i: Int): Address = {
+    try {
+      NetAddress(InetAddress.getByName("192.193.2." + i), 45678)
+    } catch {
+      case ex: UnknownHostException => throw new RuntimeException(ex)
+    }
+  }
+
   private def isBootstrap(self: Int): Boolean = self == 1
 
   val setUniformLatencyNetwork = () => Op.apply((_: Unit) => ChangeNetwork(NetworkModels.withUniformRandomDelay(3, 7)))
@@ -52,43 +60,33 @@ object GlobalScenario {
     StartNode(selfAddr, Init.none[ParentComponent], conf)
   }
 
-  val startClientOp1 = Op { (self: Integer) =>
-    val selfAddr = intToClientAddress(self)
-    val conf = Map(
-      "id2203.project.address" -> selfAddr,
-      "id2203.project.bootstrap-address" -> intToServerAddress(1))
-    StartNode(selfAddr, Init.none[ScenarioClient1], conf)
+  val startHistoryOp = Op { (self: Integer) =>
+    val selfAddr = intToHistoryAddress(self)
+    val conf = Map("id2203.project.address" -> selfAddr)
+    StartNode(selfAddr, Init.none[ScenarioHistory], conf)
   }
 
-  val startClientOp2 = Op { (self: Integer) =>
+  val startClientOp = Op { (self: Integer) =>
     val selfAddr = intToClientAddress(self)
     val conf = Map(
       "id2203.project.address" -> selfAddr,
-      "id2203.project.bootstrap-address" -> intToServerAddress(1))
-    StartNode(selfAddr, Init.none[ScenarioClient1], conf)
-  }
-
-  val startClientOp3 = Op { (self: Integer) =>
-    val selfAddr = intToClientAddress(self)
-    val conf = Map(
-      "id2203.project.address" -> selfAddr,
-      "id2203.project.bootstrap-address" -> intToServerAddress(1))
-    StartNode(selfAddr, Init.none[ScenarioClient1], conf)
+      "id2203.project.bootstrap-address" -> intToServerAddress(1),
+      "id2203.project.history-address" -> intToHistoryAddress(1))
+    StartNode(selfAddr, Init.none[ScenarioClient], conf)
   }
 
   def scenario(servers: Int): JSimulationScenario = {
 
     val networkSetup = raise(1, setUniformLatencyNetwork()).arrival(constant(0))
+    val startHistory = raise(1, startHistoryOp, 1.toN).arrival(constant(1.second))
     val startCluster = raise(servers, startServerOp, 1.toN).arrival(constant(1.second))
-    val startClient1 = raise(1, startClientOp1, 1.toN).arrival(constant(1.second))
-    val startClient2 = raise(1, startClientOp2, 1.toN).arrival(constant(1.second))
-    val startClient3 = raise(1, startClientOp3, 1.toN).arrival(constant(1.second))
+    val startClients = raise(3, startClientOp, 1.toN).arrival(constant(1.second))
+
 
     networkSetup andThen
+      0.seconds afterTermination startHistory andThen
       0.seconds afterTermination startCluster andThen
-      10.seconds afterTermination startClient1 andThen
-      0.seconds afterTermination startClient2 andThen
-      0.seconds afterTermination startClient3 andThen
+      10.seconds afterTermination startClients andThen
       100.seconds afterTermination Terminate
   }
 

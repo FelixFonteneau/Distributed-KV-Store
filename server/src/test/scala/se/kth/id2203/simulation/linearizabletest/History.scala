@@ -6,9 +6,11 @@ import scala.collection.IterableOnce.iterableOnceExtensionMethods
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
-class History {
-  var listOperation: mutable.ListBuffer[(Operation, Long)] = mutable.ListBuffer.empty[(Operation, Long)]
-  var listResponse: mutable.ListBuffer[(OperationResponse, Long)] = mutable.ListBuffer.empty[(OperationResponse, Long)]
+class History(_listOperation: List[(Operation, Long)] = List.empty[(Operation, Long)],
+              _listResponse: List[(OperationResponse, Long)] = List.empty[(OperationResponse, Long)]) {
+  var listOperation: mutable.ListBuffer[(Operation, Long)] = mutable.ListBuffer.empty[(Operation, Long)] ++ _listOperation
+
+  var listResponse: mutable.ListBuffer[(OperationResponse, Long)] = mutable.ListBuffer.empty[(OperationResponse, Long)] ++ _listResponse
 
   private var timestamp = 0
 

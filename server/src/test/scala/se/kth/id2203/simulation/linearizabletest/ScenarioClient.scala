@@ -12,9 +12,8 @@ import se.sics.kompics.simulator.{SimulationScenario => JSimulationScenario}
 
 import java.util.UUID
 import scala.collection.mutable
-import scala.util.Random
 
-class ScenarioClient3 extends ComponentDefinition {
+class ScenarioClient extends ComponentDefinition {
 
   //******* Ports ******
   val net = requires[Network]
@@ -22,9 +21,10 @@ class ScenarioClient3 extends ComponentDefinition {
   //******* Fields ******
   val self = cfg.getValue[NetAddress]("id2203.project.address")
   val server = cfg.getValue[NetAddress]("id2203.project.bootstrap-address")
-  private val pending = mutable.Map.empty[UUID, String]
-  val random = JSimulationScenario.getRandom()
+  val history = cfg.getValue[NetAddress]("id2203.project.history-address")
 
+  private val pending = mutable.Map.empty[UUID, String]
+  implicit val random = JSimulationScenario.getRandom
 
   def generateOperations(n: Int): List[Operation] = {
     var operationList = List.empty[Operation]
@@ -47,15 +47,15 @@ class ScenarioClient3 extends ComponentDefinition {
   //******* Handlers ******
   ctrl uponEvent {
     case _: Start => {
+      logger.info("Client: Startup addr: {}, history addr: {}", self, history)
       val messagesNumber = SimulationResult[Int]("nMessages")
       val operations = generateOperations(messagesNumber)
       for (op <- operations) {
-        Thread.sleep(random.nextInt(50))
+        // Thread.sleep(random.nextInt(50))
         val routeMsg = RouteMsg(op.key, op) // don't know which partition is responsible, so ask the bootstrap server to forward it
-        val hist = SimulationResult[History]("history")
         trigger(NetMessage(self, server, routeMsg) -> net)
-        hist.addEvent(op)
-        SimulationResult += ("history" -> hist)
+        trigger(NetMessage(self, history, op) -> net) // send to the history
+
         pending += (op.id -> op.key)
         logger.info("Sending {}", op)
       }
@@ -67,9 +67,7 @@ class ScenarioClient3 extends ComponentDefinition {
       logger.debug(s"Got OpResponse: $or")
       pending.remove(id) match {
         case Some(key) => {
-          val hist = SimulationResult[History]("history")
-          hist.addEvent(or)
-          SimulationResult += ("history" -> hist)
+          trigger(NetMessage(self, history, or) -> net) // send to the history
         }
         case None      => logger.warn("ID $id was not pending! Ignoring response.")
       }
