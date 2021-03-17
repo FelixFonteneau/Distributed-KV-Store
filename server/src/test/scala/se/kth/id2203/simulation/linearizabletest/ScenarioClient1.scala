@@ -1,6 +1,6 @@
 package se.kth.id2203.simulation.linearizabletest
 
-import se.kth.id2203.kvstore.{Get, OpResponse, Put}
+import se.kth.id2203.kvstore.{CAS, Get, OpResponse, Operation, Put}
 import se.kth.id2203.networking.{NetAddress, NetMessage}
 import se.kth.id2203.overlay.RouteMsg
 import se.sics.kompics.Start
@@ -24,12 +24,39 @@ class ScenarioClient1 extends ComponentDefinition {
   private val pending = mutable.Map.empty[UUID, String]
   implicit val random = JSimulationScenario.getRandom()
 
+  def generateOperations(n: Int): List[Operation] = {
+    var operationList = List.empty[Operation]
+    for (i <- 0 to n) {
+      val randomInt = random.nextInt(3)
+      if (randomInt == 0) {
+        val operation = Get(random.nextInt(10).toString)
+        operationList = operationList ++ List(operation)
+      } else if (randomInt == 1){
+        val operation = Put(random.nextInt(10).toString, random.nextInt(10).toString)
+        operationList = operationList ++ List(operation)
+      } else {
+        val operation = CAS(random.nextInt(10).toString, random.nextInt(10).toString, random.nextInt(10).toString)
+        operationList = operationList ++ List(operation)
+      }
+    }
+    operationList
+  }
+
   //******* Handlers ******
   ctrl uponEvent {
     case _: Start => {
-      val testType = SimulationResult[String]("type")
-      val messages = SimulationResult[Int]("messages")
-
+      val messagesNumber = SimulationResult[Int]("nMessages")
+      val operations = generateOperations(messagesNumber)
+      for (op <- operations) {
+        Thread.sleep(random.nextInt(50))
+        val routeMsg = RouteMsg(op.key, op) // don't know which partition is responsible, so ask the bootstrap server to forward it
+        val hist = SimulationResult[History]("history")
+        trigger(NetMessage(self, server, routeMsg) -> net)
+        hist.addEvent(op)
+        SimulationResult += ("history" -> hist)
+        pending += (op.id -> op.key)
+        logger.info("Sending {}", op)
+      }
     }
   }
 
@@ -37,7 +64,11 @@ class ScenarioClient1 extends ComponentDefinition {
     case NetMessage(header, or @ OpResponse(id, status, value)) => {
       logger.debug(s"Got OpResponse: $or")
       pending.remove(id) match {
-        case Some(key) => SimulationResult += ("client1.received." + key -> status.toString())
+        case Some(key) => {
+          val hist = SimulationResult[History]("history")
+          hist.addEvent(or)
+          SimulationResult += ("history" -> hist)
+        }
         case None      => logger.warn("ID $id was not pending! Ignoring response.")
       }
     }
