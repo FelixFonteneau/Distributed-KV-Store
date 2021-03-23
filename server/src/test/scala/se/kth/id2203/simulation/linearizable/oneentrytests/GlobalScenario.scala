@@ -1,11 +1,13 @@
-package se.kth.id2203.simulation.linearizabletest
+package se.kth.id2203.simulation.linearizable.oneentrytests
 
 import se.kth.id2203.ParentComponent
 import se.kth.id2203.networking.NetAddress
+import se.kth.id2203.simulation.linearizable.ScenarioHistory
 import se.sics.kompics.network.Address
 import se.sics.kompics.simulator.network.impl.NetworkModels
 import se.sics.kompics.simulator.{SimulationScenario => JSimulationScenario}
 import se.sics.kompics.sl.Init
+import se.sics.kompics.sl.Kompics.logger
 import se.sics.kompics.sl.simulator._
 
 import java.net.{InetAddress, UnknownHostException}
@@ -76,6 +78,7 @@ object GlobalScenario {
   }
 
   def scenario(servers: Int): JSimulationScenario = {
+    logger.info("Start tests Scenarios with seed {}")
 
     val networkSetup = raise(1, setUniformLatencyNetwork()).arrival(constant(0))
     val startHistory = raise(1, startHistoryOp, 1.toN).arrival(constant(1.second))

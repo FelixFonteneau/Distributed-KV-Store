@@ -1,4 +1,4 @@
-package se.kth.id2203.simulation.linearizabletest
+package se.kth.id2203.simulation.linearizable
 
 import se.kth.id2203.kvstore._
 import se.kth.id2203.networking._
@@ -30,13 +30,13 @@ class ScenarioHistory extends ComponentDefinition {
     case NetMessage(header, op: Operation) => {
       logger.debug(s"history: Got Op: $op")
       history.addEvent(op)
-      SimulationResult += ("historyOperation" ->  history.export._1)
+      SimulationResult += ("history" ->  history.serialise)
     }
 
     case NetMessage(header, or: OpResponse) => {
       logger.debug(s"history: Got OpResponse: $or")
       history.addEvent(or)
-      SimulationResult += ("historyResponse" -> history.export._2)
+      SimulationResult += ("history" -> history.serialise)
     }
   }
 }

@@ -61,7 +61,7 @@ class OpsTest extends FlatSpec with Matchers {
   "Get Operations" should "Not be found" in {
     val seed = 123l
     JSimulationScenario.setSeed(seed)
-    val simpleBootScenario = SimpleScenario.scenario(3)
+    val simpleBootScenario = SimpleScenario.scenario(5)
     val res = SimulationResultSingleton.getInstance()
     SimulationResult += ("messages" -> nMessages)
     SimulationResult += ("type" -> "get")
@@ -74,7 +74,7 @@ class OpsTest extends FlatSpec with Matchers {
   "Different Puts Operations" should "be created" in {
     val seed = 123l
     JSimulationScenario.setSeed(seed)
-    val simpleBootScenario = SimpleScenario.scenario(3)
+    val simpleBootScenario = SimpleScenario.scenario(5)
     val res = SimulationResultSingleton.getInstance()
     SimulationResult += ("messages" -> nMessages)
     SimulationResult += ("type" -> "put")

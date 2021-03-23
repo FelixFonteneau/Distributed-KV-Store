@@ -1,18 +1,31 @@
-package se.kth.id2203.simulation.linearizabletest
+package se.kth.id2203.simulation.linearizable
 
 import se.kth.id2203.kvstore.{Operation, OperationResponse}
 
-import scala.collection.IterableOnce.iterableOnceExtensionMethods
+import java.io._
+import java.nio.charset.StandardCharsets.UTF_8
+import java.util.Base64
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 
+@SerialVersionUID(100L)
 class History(_listOperation: List[(Operation, Long)] = List.empty[(Operation, Long)],
-              _listResponse: List[(OperationResponse, Long)] = List.empty[(OperationResponse, Long)]) {
-  var listOperation: mutable.ListBuffer[(Operation, Long)] = mutable.ListBuffer.empty[(Operation, Long)] ++ _listOperation
+              _listResponse: List[(OperationResponse, Long)] = List.empty[(OperationResponse, Long)]) extends Serializable {
+  val listOperation: mutable.ListBuffer[(Operation, Long)] = mutable.ListBuffer.empty[(Operation, Long)] ++ _listOperation
 
-  var listResponse: mutable.ListBuffer[(OperationResponse, Long)] = mutable.ListBuffer.empty[(OperationResponse, Long)] ++ _listResponse
+  val listResponse: mutable.ListBuffer[(OperationResponse, Long)] = mutable.ListBuffer.empty[(OperationResponse, Long)] ++ _listResponse
 
   private var timestamp = 0
+  override def toString : String = {
+    var res = "operations:"
+    for ((op, time) <- listOperation) {
+      res += op + ":" + time +","
+    }
+    res += "responses:"
+    for ((response, time) <- listResponse) {
+      res += response + ":" + time +","
+    }
+    res
+  }
 
   def addEvent(op: Operation): Unit = {
     listOperation.addOne(op, timestamp)
@@ -58,16 +71,23 @@ class History(_listOperation: List[(Operation, Long)] = List.empty[(Operation, L
     }
   }
 
-  def export: (List[(Operation, Long)], List[(OperationResponse, Long)]) = {
-    (listOperation.result(), listResponse.result())
+  def serialise: String = {
+    val stream: ByteArrayOutputStream = new ByteArrayOutputStream()
+    val oos = new ObjectOutputStream(stream)
+    oos.writeObject(this)
+    oos.close
+    new String(
+      Base64.getEncoder().encode(stream.toByteArray),
+      UTF_8
+    )
   }
 
-  def update(lists: (List[(Operation, Long)], List[(OperationResponse, Long)])): Unit = {
-    listOperation = ListBuffer.empty
-    listOperation ++= lists._1
-
-    listResponse = ListBuffer.empty
-    listResponse ++= lists._2
+  def deserialise(encoded: String): History = {
+    val bytes = Base64.getDecoder().decode(encoded.getBytes(UTF_8))
+    val ois = new ObjectInputStream(new ByteArrayInputStream(bytes))
+    val value = ois.readObject
+    ois.close
+    value.asInstanceOf[History]
   }
 }
 

@@ -1,4 +1,4 @@
-package se.kth.id2203.simulation.linearizabletest
+package se.kth.id2203.simulation.linearizable.oneentrytests
 
 import se.kth.id2203.kvstore.{CAS, Get, OpResponse, Operation, Put}
 import se.kth.id2203.networking.{NetAddress, NetMessage}
@@ -14,6 +14,7 @@ import java.util.UUID
 import scala.collection.mutable
 
 class ScenarioClient extends ComponentDefinition {
+  import se.sics.kompics.sl.simulator.Distributions._
 
   //******* Ports ******
   val net = requires[Network]
