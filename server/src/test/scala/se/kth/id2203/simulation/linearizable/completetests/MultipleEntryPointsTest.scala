@@ -12,7 +12,7 @@ import scala.collection.mutable
 class MultipleEntryPointsTest extends FlatSpec with Matchers {
 
   private val SERVER_NUMBER = 5
-  
+
   def executeLinearizeTestPlan(seed: Long, nMessages: Int) : History = {
     JSimulationScenario.setSeed(seed)
     val bootScenario = GlobalScenario.scenario(SERVER_NUMBER)

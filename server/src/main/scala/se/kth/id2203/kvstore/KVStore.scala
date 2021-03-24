@@ -86,11 +86,13 @@ class KVService extends ComponentDefinition {
       log.info("Paxos decided: {} {}", op, address)
       var response: OperationResponse = op.response(NotFound)
       if (store.contains(key)) {
-        if (store(key) == refValue) {
+        val oldValue = store(key)
+
+        if (oldValue == refValue) {
           store(key) = newValue
-          response = op.response(Updated)
+          response = op.response(Updated, oldValue)
         } else {
-          response = op.response(ValueDoesNotMatch)
+          response = op.response(ValueDoesNotMatch, oldValue)
         }
       }
       if (responsibleNode == self) {
