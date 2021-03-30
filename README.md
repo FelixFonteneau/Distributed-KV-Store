@@ -1,7 +1,7 @@
-# ID2203 Project 2021 Starter Code for Kompics Scala
+# ID2203 Project Kompics Scala
 
-This project contains some code to get you started with the project.
-You are encouraged to create your own forks and work on them, modifying everything and anything as you desire it.
+This project is an implementation of a key-value distributed store based on [Kompics-Scala](https://kompics.github.io/kompics-scala/). 
+The architecture follows a leader based sequence paxos to satisfy the linearizability property. For more [informations](report.pdf).
 
 ## Overview
 
@@ -96,8 +96,3 @@ Connect with client:
 ```
 ./client.sh
 ```
-
-## Issues
-If you find a bug please create an issue on git, or create a pull request with a fix.
-
-If there are other questions, try to talk to the other students (e.g., in Piazza forums) and only if that doesn't help write me an email at <mmeldrum@kth.se>. Or, of course, ask at a lab session.
